@@ -1397,23 +1397,10 @@ TEST_F(RocketNetworkTest, ObserverIsNotInstalledWhenFlagIsFalse) {
   });
 }
 
-MATCHER_P3(WriteStartingMatcher, id, bytes, offset, "") {
+MATCHER_P3(WriteEventMatcher, id, bytes, offset, "") {
   return arg.streamId == StreamId(id) &&
       arg.totalBytesInWrite == (size_t)bytes &&
       arg.batchOffset == (size_t)offset;
-}
-
-MATCHER_P3(WriteSuccessMatcher, id, bytes, offset, "") {
-  return arg.streamId == StreamId(id) &&
-      arg.totalBytesInWrite == (size_t)bytes &&
-      arg.batchOffset == (size_t)offset;
-}
-
-MATCHER_P2(WriteEventContextMatcher, startRawOffset, endRawOffset, "") {
-  return arg.startRawByteOffset.has_value() &&
-      arg.startRawByteOffset.value() == startRawOffset &&
-      arg.endRawByteOffset.has_value() &&
-      arg.endRawByteOffset.value() == endRawOffset;
 }
 
 TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
@@ -1443,21 +1430,19 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
     constexpr size_t kSetupFrameSize(14);
     constexpr size_t kSetupFrameStreamId(0);
 
-    // send a request and check the event notifications when the
-    // response is ready and written to the socket
+    // send a request and check the event notifications when the response is
+    // ready and written to the socket
     {
       constexpr folly::StringPiece kMetadata("metadata");
       constexpr folly::StringPiece kData("data");
-      const unsigned int startOffsetBatch1 = 0;
-      const unsigned int endOffsetBatch1 = kSetupFrameSize + 24;
 
-      // responses to setup frame (stream id = 0) and to the first
-      // request (stream id = 1) are batched together
+      // responses to setup frame (stream id = 0) and to the first request
+      // (stream id = 1) are batched together
       EXPECT_CALL(
           *observer,
-          writeStarting(
+          writeReady(
               _,
-              WriteStartingMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId /* streamId */,
                   kSetupFrameSize /* totalBytesWritten */,
                   0 /* batchOffset */)));
@@ -1465,18 +1450,15 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
           *observer,
           writeSuccess(
               _,
-              WriteSuccessMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId /* streamId */,
                   kSetupFrameSize /* totalBytesWritten */,
-                  0 /* batchOffset */),
-              WriteEventContextMatcher(
-                  startOffsetBatch1 /* startRawByteOffset */,
-                  endOffsetBatch1 /* endRawByteOffset */)));
+                  0 /* batchOffset */)));
       EXPECT_CALL(
           *observer,
-          writeStarting(
+          writeReady(
               _,
-              WriteStartingMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId + 1 /* streamId */,
                   24 /* totalBytesWritten */,
                   kSetupFrameSize /* batchOffset */)));
@@ -1484,13 +1466,10 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
           *observer,
           writeSuccess(
               _,
-              WriteSuccessMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId + 1 /* streamId */,
                   24 /* totalBytesWritten */,
-                  kSetupFrameSize /* batchOffset */),
-              WriteEventContextMatcher(
-                  startOffsetBatch1 /* startRawByteOffset */,
-                  endOffsetBatch1 /* endRawByteOffset */)));
+                  kSetupFrameSize /* batchOffset */)));
 
       client.sendRequestResponseSync(
           Payload::makeFromMetadataAndData(kMetadata, kData),
@@ -1503,16 +1482,11 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
     {
       constexpr folly::StringPiece kNewMetadata("new_metadata");
       constexpr folly::StringPiece kNewData("new_data");
-      const unsigned int startOffsetBatch2 =
-          kSetupFrameSize + 24 /* 24 is the size of the first response */;
-      const unsigned int endOffsetBatch2 =
-          startOffsetBatch2 + 32 /* 32 is the size of the second response */;
-
       EXPECT_CALL(
           *observer,
-          writeStarting(
+          writeReady(
               _,
-              WriteStartingMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId + 3 /* streamId */,
                   32 /* totalBytesWritten */,
                   0 /* batchOffset */)));
@@ -1520,13 +1494,10 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestResponse) {
           *observer,
           writeSuccess(
               _,
-              WriteSuccessMatcher(
+              WriteEventMatcher(
                   kSetupFrameStreamId + 3 /* streamId */,
                   32 /* totalBytesWritten */,
-                  0 /* batchOffset */),
-              WriteEventContextMatcher(
-                  startOffsetBatch2 /* startRawByteOffset */,
-                  endOffsetBatch2 /* endRawByteOffset */)));
+                  0 /* batchOffset */)));
 
       client.sendRequestResponseSync(
           Payload::makeFromMetadataAndData(kNewMetadata, kNewData),
@@ -1575,14 +1546,12 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestStream) {
     constexpr folly::StringPiece kMetadata("metadata");
     const auto data =
         folly::to<std::string>("generate:", kNumRequestedPayloads);
-    const unsigned int startOffsetBatch = 0;
-    const unsigned int endOffsetBatch = kSetupFrameSize + 16;
 
     EXPECT_CALL(
         *observer,
-        writeStarting(
+        writeReady(
             _,
-            WriteStartingMatcher(
+            WriteEventMatcher(
                 kSetupFrameStreamId /* streamId */,
                 kSetupFrameSize /* totalBytesWritten */,
                 0 /* batchOffset */)));
@@ -1590,18 +1559,15 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestStream) {
         *observer,
         writeSuccess(
             _,
-            WriteSuccessMatcher(
+            WriteEventMatcher(
                 kSetupFrameStreamId /* streamId */,
                 kSetupFrameSize /* totalBytesWritten */,
-                0 /* batchOffset */),
-            WriteEventContextMatcher(
-                startOffsetBatch /* startRawByteOffset */,
-                endOffsetBatch /* endRawByteOffset */)));
+                0 /* batchOffset */)));
     EXPECT_CALL(
         *observer,
-        writeStarting(
+        writeReady(
             _,
-            WriteStartingMatcher(
+            WriteEventMatcher(
                 kSetupFrameStreamId + 1 /* streamId */,
                 16 /* totalBytesWritten */,
                 kSetupFrameSize /* batchOffset */)));
@@ -1609,13 +1575,10 @@ TEST_F(RocketNetworkTest, ObserverIsNotifiedOnWriteSuccessRequestStream) {
         *observer,
         writeSuccess(
             _,
-            WriteSuccessMatcher(
+            WriteEventMatcher(
                 kSetupFrameStreamId + 1 /* streamId */,
                 16 /* totalBytesWritten */,
-                kSetupFrameSize /* batchOffset */),
-            WriteEventContextMatcher(
-                startOffsetBatch /* startRawByteOffset */,
-                endOffsetBatch /* endRawByteOffset */)));
+                kSetupFrameSize /* batchOffset */)));
 
     auto stream = client.sendRequestStreamSync(
         Payload::makeFromMetadataAndData(kMetadata, folly::StringPiece{data}));

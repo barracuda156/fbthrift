@@ -118,7 +118,6 @@ class RocketServerConnection final
   void close(folly::exception_wrapper ew);
 
   // AsyncTransport::WriteCallback implementation
-  void writeStarting() noexcept final;
   void writeSuccess() noexcept final;
   void writeErr(
       size_t bytesWritten,
@@ -299,7 +298,7 @@ class RocketServerConnection final
    * @return             Attached observers of type T.
    */
   template <typename T = Observer>
-  std::vector<T*> findObservers() const {
+  std::vector<T*> findObservers() {
     if (auto list = getObserverContainer()) {
       return list->findObservers<T>();
     }
@@ -353,8 +352,6 @@ class RocketServerConnection final
     std::vector<apache::thrift::MessageChannel::SendCallbackPtr> sendCallbacks;
     // the WriteEvent objects associated with each write in the batch
     std::vector<RocketServerConnectionObserver::WriteEvent> writeEvents;
-    // the raw byte offset at the beginning and end of the inflight write
-    RocketServerConnectionObserver::WriteEventBatchContext writeEventsContext;
   };
   // The size of the queue is equal to the total number of inflight writes to
   // the underlying transport, i.e., writes for which the

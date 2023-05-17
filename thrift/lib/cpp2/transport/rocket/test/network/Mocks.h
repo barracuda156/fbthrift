@@ -31,15 +31,13 @@ class MockRocketServerConnectionObserver
   using RocketServerConnection::ManagedObserver::ManagedObserver;
   MOCK_METHOD(
       void,
-      writeStarting,
+      writeReady,
       (RocketServerConnection*, const WriteEvent&),
       (override));
   MOCK_METHOD(
       void,
       writeSuccess,
-      (RocketServerConnection*,
-       const WriteEvent&,
-       const WriteEventBatchContext&),
+      (RocketServerConnection*, const WriteEvent&),
       (override));
 };
 
