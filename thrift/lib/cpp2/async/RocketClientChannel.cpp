@@ -49,7 +49,6 @@
 #include <thrift/lib/cpp2/transport/core/RpcMetadataUtil.h>
 #include <thrift/lib/cpp2/transport/core/ThriftClientCallback.h>
 #include <thrift/lib/cpp2/transport/core/TryUtil.h>
-#include <thrift/lib/cpp2/transport/rocket/FdSocketMetadata.h>
 #include <thrift/lib/cpp2/transport/rocket/PayloadUtils.h>
 #include <thrift/lib/cpp2/transport/rocket/RocketException.h>
 #include <thrift/lib/cpp2/transport/rocket/client/RocketClient.h>
@@ -814,8 +813,7 @@ void RocketClientChannel::sendRequestStream(
   auto buf = std::move(request.buffer);
   setCompression(metadata, buf->computeChainDataLength());
 
-  auto payload = rocket::packWithFds(
-      &metadata, std::move(buf), rocket::releaseFdsFromMetadata(metadata));
+  auto payload = rocket::pack(metadata, std::move(buf));
   assert(metadata.name_ref());
   return rocket::RocketClient::sendRequestStream(
       std::move(payload),
@@ -856,8 +854,7 @@ void RocketClientChannel::sendRequestSink(
   auto buf = std::move(request.buffer);
   setCompression(metadata, buf->computeChainDataLength());
 
-  auto payload = rocket::packWithFds(
-      &metadata, std::move(buf), rocket::releaseFdsFromMetadata(metadata));
+  auto payload = rocket::pack(metadata, std::move(buf));
   assert(metadata.name_ref());
   return rocket::RocketClient::sendRequestSink(
       std::move(payload),
@@ -924,8 +921,7 @@ void RocketClientChannel::sendSingleRequestNoResponse(
     RequestRpcMetadata&& metadata,
     std::unique_ptr<folly::IOBuf> buf,
     RequestClientCallback::Ptr cb) {
-  auto requestPayload = rocket::packWithFds(
-      &metadata, std::move(buf), rocket::releaseFdsFromMetadata(metadata));
+  auto requestPayload = rocket::pack(metadata, std::move(buf));
   const bool isSync = cb->isSync();
   SingleRequestNoResponseCallback callback(std::move(cb));
 
@@ -945,8 +941,7 @@ void RocketClientChannel::sendSingleRequestSingleResponse(
     std::unique_ptr<folly::IOBuf> buf,
     RequestClientCallback::Ptr cb) {
   const auto requestSerializedSize = buf->computeChainDataLength();
-  auto requestPayload = rocket::packWithFds(
-      &metadata, std::move(buf), rocket::releaseFdsFromMetadata(metadata));
+  auto requestPayload = rocket::pack(metadata, std::move(buf));
   const auto requestWireSize = requestPayload.dataSize();
   const auto requestMetadataAndPayloadSize =
       requestPayload.metadataAndDataSize();
